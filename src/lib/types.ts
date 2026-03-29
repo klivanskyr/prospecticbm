@@ -1,8 +1,6 @@
 export interface User {
   id: string;
   full_name: string;
-  company_name: string | null;
-  company_description: string | null;
   plan: "starter" | "growth" | "scale";
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
@@ -19,9 +17,25 @@ export interface User {
   updated_at: string;
 }
 
+export interface Company {
+  id: string;
+  user_id: string;
+  name: string;
+  website_url: string | null;
+  description: string;
+  value_proposition: string | null;
+  industry: string | null;
+  target_market: string | null;
+  company_size: string | null;
+  differentiators: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface IcpProfile {
   id: string;
   user_id: string;
+  company_id: string | null;
   raw_description: string;
   target_industries: string[] | null;
   target_job_titles: string[] | null;
@@ -35,6 +49,7 @@ export interface IcpProfile {
 export interface Template {
   id: string;
   user_id: string;
+  company_id: string | null;
   icp_profile_id: string | null;
   channel: "email" | "linkedin";
   sequence_step: number;
@@ -48,6 +63,7 @@ export interface Template {
 export interface Prospect {
   id: string;
   user_id: string;
+  company_id: string | null;
   icp_profile_id: string | null;
   first_name: string | null;
   last_name: string | null;
@@ -67,6 +83,7 @@ export interface Prospect {
 export interface Campaign {
   id: string;
   user_id: string;
+  company_id: string | null;
   icp_profile_id: string | null;
   name: string;
   status: "draft" | "active" | "paused" | "completed";
