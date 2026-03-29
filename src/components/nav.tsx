@@ -1,10 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Nav() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
 
   return (
     <nav className="sticky top-0 z-50 border-b border-black/5 bg-[#FFFBEB]/80 backdrop-blur-lg">
@@ -29,15 +38,26 @@ export default function Nav() {
 
         {/* Right side — desktop */}
         <div className="hidden items-center gap-4 md:flex">
-          <Link href="/login" className="text-sm font-medium text-gray-700 hover:text-[#DC2626] transition-colors">
-            Login
-          </Link>
-          <Link
-            href="/signup"
-            className="rounded-lg bg-[#DC2626] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#B91C1C] transition-colors"
-          >
-            Start free trial
-          </Link>
+          {isLoggedIn ? (
+            <Link
+              href="/dashboard"
+              className="rounded-lg bg-[#DC2626] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#B91C1C] transition-colors"
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm font-medium text-gray-700 hover:text-[#DC2626] transition-colors">
+                Login
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-lg bg-[#DC2626] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#B91C1C] transition-colors"
+              >
+                Start free trial
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Hamburger — mobile */}
@@ -72,15 +92,23 @@ export default function Nav() {
               FAQ
             </a>
             <hr className="border-black/10" />
-            <Link href="/login" className="text-sm font-medium text-gray-700 hover:text-[#DC2626]">
-              Login
-            </Link>
-            <Link
-              href="/signup"
-              className="rounded-lg bg-[#DC2626] px-5 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:bg-[#B91C1C]"
-            >
-              Start free trial
-            </Link>
+            {isLoggedIn ? (
+              <Link href="/dashboard" className="rounded-lg bg-[#DC2626] px-5 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:bg-[#B91C1C]">
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link href="/login" className="text-sm font-medium text-gray-700 hover:text-[#DC2626]">
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  className="rounded-lg bg-[#DC2626] px-5 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:bg-[#B91C1C]"
+                >
+                  Start free trial
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

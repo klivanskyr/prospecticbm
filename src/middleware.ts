@@ -33,16 +33,29 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  const { pathname, searchParams } = request.nextUrl;
+
+  // Handle OAuth callback code — exchange it for a session
+  const code = searchParams.get("code");
+  if (code && (pathname === "/" || pathname === "/api/auth/callback")) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
 
   // Redirect authenticated users to dashboard from landing/auth pages
   if (user && (pathname === "/" || pathname === "/login" || pathname === "/signup")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
