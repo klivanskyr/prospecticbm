@@ -52,6 +52,12 @@ export default function NewCampaignPage() {
   const [discoverMessage, setDiscoverMessage] = useState<string | null>(null);
   const [prospectsLoading, setProspectsLoading] = useState(false);
 
+  // Step 3: Generated templates
+  const [generatedEmails, setGeneratedEmails] = useState<{ sequence_step: number; subject: string; body: string }[]>([]);
+  const [generatedLinkedin, setGeneratedLinkedin] = useState<{ sequence_step: number; body: string }[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [generatedSaved, setGeneratedSaved] = useState(false);
+
   // Step 5: Review
   const [campaignName, setCampaignName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -154,6 +160,57 @@ export default function NewCampaignPage() {
     }
   };
 
+  const handleGenerateTemplates = async () => {
+    setGenerating(true);
+    setError(null);
+    setGeneratedSaved(false);
+    try {
+      const res = await fetch(`/api/companies/${companyId}/templates/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ icp_profile_id: selectedIcpId, channels }),
+      });
+      let data;
+      try { data = await res.json(); } catch { throw new Error(`Server error (${res.status})`); }
+      if (!res.ok) throw new Error(data.error ?? "Generation failed");
+      setGeneratedEmails(data.email_templates || []);
+      setGeneratedLinkedin(data.linkedin_templates || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Template generation failed");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSaveGeneratedTemplates = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const allTemplates = [
+        ...generatedEmails.map((t) => ({ channel: "email" as const, ...t })),
+        ...generatedLinkedin.map((t) => ({ channel: "linkedin" as const, sequence_step: t.sequence_step, subject: null, body: t.body })),
+      ];
+      const res = await fetch(`/api/companies/${companyId}/templates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templates: allTemplates }),
+      });
+      let data;
+      try { data = await res.json(); } catch { throw new Error(`Server error (${res.status})`); }
+      if (!res.ok) throw new Error(data.error ?? "Failed to save templates");
+      // Auto-select the saved templates
+      const savedIds = (data as { id: string }[]).map((t) => t.id);
+      setSelectedTemplateIds(savedIds);
+      setGeneratedSaved(true);
+      // Refresh template list
+      fetchTemplates();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save templates");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleChannel = (ch: Channel) => {
     setChannels((prev) =>
       prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]
@@ -245,7 +302,7 @@ export default function NewCampaignPage() {
       case 1:
         return channels.length > 0;
       case 2:
-        return selectedTemplateIds.length > 0;
+        return selectedTemplateIds.length > 0 || generatedSaved;
       case 3:
         return (
           selectedProspectIds.length > 0 ||
@@ -532,130 +589,149 @@ export default function NewCampaignPage() {
 
       {/* ───── Step 2: Templates ───── */}
       {step === 2 && (
-        <Card title="Select Templates">
-          {templatesLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-20 animate-pulse rounded-lg bg-gray-100"
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {channels.includes("email") && (
-                <div>
-                  <h4 className="mb-2 text-sm font-semibold text-gray-700">
-                    Email Templates
-                  </h4>
-                  {emailTemplates.length === 0 ? (
-                    <p className="rounded-lg bg-gray-50 px-4 py-6 text-center text-sm text-gray-400">
-                      No email templates found for this company. Create
-                      templates first.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {emailTemplates.map((t) => (
-                        <button
-                          key={t.id}
-                          onClick={() => toggleTemplate(t.id)}
-                          className={`w-full rounded-lg border-2 p-3 text-left transition-colors ${
-                            selectedTemplateIds.includes(t.id)
-                              ? "border-[#DC2626] bg-red-50"
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-gray-400">
-                              Step {t.sequence_step}
-                            </span>
-                            {selectedTemplateIds.includes(t.id) && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth={2.5}
-                                stroke="currentColor"
-                                className="h-4 w-4 text-[#DC2626]"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M4.5 12.75l6 6 9-13.5"
-                                />
-                              </svg>
-                            )}
-                          </div>
-                          {t.subject && (
-                            <p className="text-sm font-medium text-gray-900">
-                              {t.subject}
-                            </p>
-                          )}
-                          <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">
-                            {t.body}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+        <Card title="Outreach Templates">
+          <div className="space-y-6">
+            {/* Generate button */}
+            {generatedEmails.length === 0 && generatedLinkedin.length === 0 && !generatedSaved && (
+              <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
+                <p className="text-sm text-gray-600 mb-1">Let AI write your outreach templates based on your company info and ICP.</p>
+                <p className="text-xs text-gray-400 mb-4">You can review and edit everything before saving.</p>
+                <button
+                  onClick={handleGenerateTemplates}
+                  disabled={generating}
+                  className="bg-[#DC2626] text-white px-6 py-2.5 rounded-lg font-semibold text-sm hover:bg-red-700 transition disabled:opacity-50"
+                >
+                  {generating ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                      AI is writing your templates...
+                    </span>
+                  ) : "Generate Templates with AI"}
+                </button>
+              </div>
+            )}
 
-              {channels.includes("linkedin") && (
-                <div>
-                  <h4 className="mb-2 text-sm font-semibold text-gray-700">
-                    LinkedIn Templates
-                  </h4>
-                  {linkedinTemplates.length === 0 ? (
-                    <p className="rounded-lg bg-gray-50 px-4 py-6 text-center text-sm text-gray-400">
-                      No LinkedIn templates found for this company. Create
-                      templates first.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {linkedinTemplates.map((t) => (
-                        <button
-                          key={t.id}
-                          onClick={() => toggleTemplate(t.id)}
-                          className={`w-full rounded-lg border-2 p-3 text-left transition-colors ${
-                            selectedTemplateIds.includes(t.id)
-                              ? "border-[#DC2626] bg-red-50"
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-gray-400">
-                              Step {t.sequence_step}
-                            </span>
-                            {selectedTemplateIds.includes(t.id) && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth={2.5}
-                                stroke="currentColor"
-                                className="h-4 w-4 text-[#DC2626]"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M4.5 12.75l6 6 9-13.5"
-                                />
-                              </svg>
-                            )}
-                          </div>
-                          <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">
-                            {t.body}
-                          </p>
-                        </button>
-                      ))}
+            {/* Generated email templates — editable */}
+            {generatedEmails.length > 0 && !generatedSaved && (
+              <div>
+                <h4 className="mb-3 text-sm font-semibold text-gray-700">Email Sequence ({generatedEmails.length} steps)</h4>
+                <div className="space-y-4">
+                  {generatedEmails.map((t, i) => (
+                    <div key={i} className="rounded-lg border border-gray-200 p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-[#DC2626]">Email Step {t.sequence_step}</span>
+                        <span className="text-xs text-gray-400">{t.sequence_step === 1 ? "Initial" : t.sequence_step === 2 ? "Follow-up" : "Break-up"}</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={t.subject}
+                        onChange={(e) => {
+                          const updated = [...generatedEmails];
+                          updated[i] = { ...updated[i], subject: e.target.value };
+                          setGeneratedEmails(updated);
+                        }}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
+                        placeholder="Subject line"
+                      />
+                      <textarea
+                        value={t.body}
+                        onChange={(e) => {
+                          const updated = [...generatedEmails];
+                          updated[i] = { ...updated[i], body: e.target.value };
+                          setGeneratedEmails(updated);
+                        }}
+                        rows={5}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#DC2626] font-mono"
+                      />
                     </div>
-                  )}
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+
+            {/* Generated LinkedIn templates — editable */}
+            {generatedLinkedin.length > 0 && !generatedSaved && (
+              <div>
+                <h4 className="mb-3 text-sm font-semibold text-gray-700">LinkedIn Sequence ({generatedLinkedin.length} steps)</h4>
+                <div className="space-y-4">
+                  {generatedLinkedin.map((t, i) => (
+                    <div key={i} className="rounded-lg border border-gray-200 p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-[#DC2626]">LinkedIn Step {t.sequence_step}</span>
+                        <span className="text-xs text-gray-400">{t.sequence_step === 1 ? "Connection Request" : "Follow-up DM"}</span>
+                        {t.sequence_step === 1 && <span className="text-xs text-amber-600">{t.body.length}/300 chars</span>}
+                      </div>
+                      <textarea
+                        value={t.body}
+                        onChange={(e) => {
+                          const updated = [...generatedLinkedin];
+                          updated[i] = { ...updated[i], body: e.target.value };
+                          setGeneratedLinkedin(updated);
+                        }}
+                        rows={t.sequence_step === 1 ? 3 : 5}
+                        maxLength={t.sequence_step === 1 ? 300 : undefined}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#DC2626] font-mono"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Save & Use button */}
+            {(generatedEmails.length > 0 || generatedLinkedin.length > 0) && !generatedSaved && (
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSaveGeneratedTemplates}
+                  disabled={loading}
+                  className="bg-[#DC2626] text-white px-6 py-2.5 rounded-lg font-semibold text-sm hover:bg-red-700 transition disabled:opacity-50"
+                >
+                  {loading ? "Saving..." : "Save & Use These Templates"}
+                </button>
+                <button
+                  onClick={handleGenerateTemplates}
+                  disabled={generating}
+                  className="border-2 border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:border-[#DC2626] hover:text-[#DC2626] transition disabled:opacity-50"
+                >
+                  {generating ? "Regenerating..." : "Regenerate"}
+                </button>
+              </div>
+            )}
+
+            {/* Saved confirmation */}
+            {generatedSaved && (
+              <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+                Templates saved and selected. You can proceed to the next step.
+              </div>
+            )}
+
+            {/* Existing templates (if any, show below) */}
+            {templates.length > 0 && (
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="mb-3 text-sm font-semibold text-gray-700">Or select from existing templates</h4>
+                <div className="space-y-2">
+                  {templates.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => toggleTemplate(t.id)}
+                      className={`w-full rounded-lg border-2 p-3 text-left transition-colors ${
+                        selectedTemplateIds.includes(t.id) ? "border-[#DC2626] bg-red-50" : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-400">{t.channel} · Step {t.sequence_step}</span>
+                        {selectedTemplateIds.includes(t.id) && (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4 text-[#DC2626]"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                        )}
+                      </div>
+                      {t.subject && <p className="text-sm font-medium text-gray-900">{t.subject}</p>}
+                      <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{t.body}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </Card>
       )}
 
