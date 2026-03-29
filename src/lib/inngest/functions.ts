@@ -9,7 +9,7 @@ import { anthropic } from "@/lib/anthropic";
 export const runCampaign = inngest.createFunction(
   {
     id: "run-campaign",
-    concurrency: { limit: 10 },
+    concurrency: { limit: 2 },
     triggers: [{ event: "campaign/run" }],
   },
   async ({ event, step }) => {
@@ -92,7 +92,7 @@ export const runCampaign = inngest.createFunction(
 export const discoverAndSendToProspect = inngest.createFunction(
   {
     id: "discover-and-send",
-    concurrency: { limit: 5 },
+    concurrency: { limit: 2 },
     triggers: [{ event: "prospect/discover-and-send" }],
   },
   async ({ event, step }) => {
