@@ -16,7 +16,7 @@ export default function EditCompanyPage() {
   });
 
   useEffect(() => {
-    fetch(`/api/companies/${id}`).then((r) => r.json()).then((data) => {
+    fetch(`/api/companies/${id}`).then((r) => { if (!r.ok) throw new Error("Failed to load"); return r.json(); }).then((data) => {
       setForm({
         name: data.name || "",
         website_url: data.website_url || "",

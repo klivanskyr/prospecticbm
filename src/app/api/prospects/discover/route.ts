@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { icpProfileId, maxProspects = 10 } = body;
+  const { icpProfileId, companyId, maxProspects = 10 } = body;
 
   if (!icpProfileId) {
     return NextResponse.json(
@@ -56,6 +56,7 @@ export async function POST(request: Request) {
     name: "prospects/discover",
     data: {
       userId: user.id,
+      companyId: companyId || null,
       icpProfileId,
       maxProspects: cappedMax,
     },

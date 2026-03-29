@@ -9,8 +9,9 @@ export const discoverProspects = inngest.createFunction(
     triggers: [{ event: "prospects/discover" }],
   },
   async ({ event, step }) => {
-    const { userId, icpProfileId, maxProspects } = event.data as {
+    const { userId, companyId, icpProfileId, maxProspects } = event.data as {
       userId: string;
+      companyId: string;
       icpProfileId: string;
       maxProspects: number;
     };
@@ -58,6 +59,7 @@ Make the data realistic. Use real company naming patterns and plausible email fo
     const inserted = await step.run("insert-prospects", async () => {
       const rows = (prospects as Array<Record<string, string>>).map((p) => ({
         user_id: userId,
+        company_id: companyId,
         icp_profile_id: icpProfileId,
         first_name: p.first_name,
         last_name: p.last_name,
