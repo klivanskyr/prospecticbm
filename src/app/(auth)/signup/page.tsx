@@ -17,8 +17,7 @@ export default function SignupPage() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/api/auth/callback`,
-        scopes:
-          "openid email profile https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify",
+        scopes: "openid email profile",
       },
     });
   }
