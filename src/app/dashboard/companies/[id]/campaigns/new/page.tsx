@@ -133,7 +133,12 @@ export default function NewCampaignPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ raw_description: newIcpDescription }),
       });
-      const created = await res.json();
+      let created;
+      try {
+        created = await res.json();
+      } catch {
+        throw new Error(`Server error (${res.status}). Please try again.`);
+      }
       if (!res.ok) {
         throw new Error(created.error ?? "Failed to create ICP");
       }

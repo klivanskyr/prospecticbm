@@ -44,6 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // Use Claude to parse ICP description
+  try {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 2048,
@@ -97,4 +98,8 @@ Return ONLY valid JSON, no other text.`,
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data, { status: 201 });
+  } catch (err) {
+    console.error("ICP creation error:", err);
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to create ICP" }, { status: 500 });
+  }
 }
