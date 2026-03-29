@@ -46,14 +46,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // Use Claude to parse ICP description
   try {
   const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 1024,
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 2048,
     messages: [{
       role: "user",
-      content: `Parse this ICP into JSON. Company: ${company.name}. ICP: ${raw_description}
+      content: `You are a B2B sales strategist. Parse this ideal customer profile description into structured targeting criteria.
 
-Return ONLY this JSON format, nothing else:
-{"target_industries":[],"target_job_titles":[],"target_company_size":"","target_geography":[]}`,
+Company context: ${company.name} — ${company.description}
+
+ICP Description: ${raw_description}
+
+Return a JSON object with:
+{
+  "target_industries": ["industry1", "industry2"],
+  "target_job_titles": ["title1", "title2"],
+  "target_company_size": "1-50",
+  "target_geography": ["US", "Canada"]
+}
+
+Return ONLY valid JSON, no other text.`,
     }],
   });
 
