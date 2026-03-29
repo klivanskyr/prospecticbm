@@ -10,7 +10,8 @@ function isPublicPath(pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  // We need to track cookies set by Supabase so we can forward them on redirects
+  const cookiesToForward: { name: string; value: string; options?: Record<string, unknown> }[] = [];
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,10 +25,8 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
+          // Track all cookies Supabase wants to set
+          cookiesToForward.push(...cookiesToSet);
         },
       },
     }
@@ -43,7 +42,12 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       url.search = "";
-      return NextResponse.redirect(url);
+      const response = NextResponse.redirect(url);
+      // Forward the session cookies onto the redirect response
+      cookiesToForward.forEach(({ name, value, options }) =>
+        response.cookies.set(name, value, options as Record<string, string>)
+      );
+      return response;
     }
   }
 
@@ -56,7 +60,11 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";
-    return NextResponse.redirect(url);
+    const response = NextResponse.redirect(url);
+    cookiesToForward.forEach(({ name, value, options }) =>
+      response.cookies.set(name, value, options as Record<string, string>)
+    );
+    return response;
   }
 
   // Protect dashboard and onboarding routes
@@ -66,7 +74,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return supabaseResponse;
+  // Default: pass through with cookies
+  const response = NextResponse.next({ request });
+  cookiesToForward.forEach(({ name, value, options }) =>
+    response.cookies.set(name, value, options as Record<string, string>)
+  );
+  return response;
 }
 
 export const config = {
