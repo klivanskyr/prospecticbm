@@ -224,7 +224,7 @@ export default function NewCampaignPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create campaign");
-      router.push(`/dashboard/companies/${companyId}?tab=campaigns`);
+      router.push(`/dashboard/companies/${companyId}/campaigns`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create campaign");
     } finally {

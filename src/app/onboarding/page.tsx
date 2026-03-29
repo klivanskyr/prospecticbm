@@ -50,7 +50,7 @@ export default function OnboardingPage() {
         });
       }
 
-      router.push(`/dashboard/companies/${company.id}?tab=campaigns`);
+      router.push(`/dashboard/companies/${company.id}/campaigns`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
