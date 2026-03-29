@@ -66,15 +66,47 @@ export default function ProspectsPage() {
     fetchProspects();
   }, [fetchProspects]);
 
+  const [quotaRemaining, setQuotaRemaining] = useState<number | null>(null);
+  const [quotaError, setQuotaError] = useState<string | null>(null);
+
   const handleDiscover = async () => {
     setDiscovering(true);
+    setQuotaError(null);
     try {
-      const res = await fetch("/api/prospects/discover", { method: "POST" });
+      // Get active ICP
+      const { data: icp } = await supabase
+        .from("icp_profiles")
+        .select("id")
+        .eq("is_active", true)
+        .single();
+
+      if (!icp) {
+        setError("No ICP profile found. Complete onboarding first.");
+        setDiscovering(false);
+        return;
+      }
+
+      const res = await fetch("/api/prospects/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ icpProfileId: icp.id, maxProspects: 10 }),
+      });
+
+      const body = await res.json();
+
+      if (res.status === 402) {
+        setQuotaError(body.error);
+        setDiscovering(false);
+        return;
+      }
+
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Discovery failed");
       }
-      await fetchProspects();
+
+      setQuotaRemaining(body.prospects_remaining);
+      // Wait a moment for Inngest to process, then refresh
+      setTimeout(() => fetchProspects(), 5000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Discovery failed");
     } finally {
@@ -114,7 +146,7 @@ export default function ProspectsPage() {
                 Discovering...
               </>
             ) : (
-              "Discover Prospects"
+              <>Discover Prospects{quotaRemaining !== null ? ` (${quotaRemaining} left)` : ""}</>
             )}
           </Button>
         </div>
@@ -137,6 +169,19 @@ export default function ProspectsPage() {
           {loading ? "Loading..." : `${prospects.length} prospect${prospects.length !== 1 ? "s" : ""}`}
         </span>
       </div>
+
+      {/* Quota Error */}
+      {quotaError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center justify-between">
+          <span>{quotaError}</span>
+          <a
+            href="/dashboard/settings"
+            className="ml-4 inline-block bg-[#DC2626] text-white px-4 py-1.5 rounded-lg font-medium text-sm hover:bg-red-700 transition whitespace-nowrap"
+          >
+            Upgrade Plan
+          </a>
+        </div>
+      )}
 
       {/* Error */}
       {error && (

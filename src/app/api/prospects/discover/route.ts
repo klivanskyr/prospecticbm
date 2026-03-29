@@ -11,29 +11,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Check quota
-  const { data: subscription } = await supabase
-    .from("subscriptions")
-    .select("plan, prospects_limit, prospects_used")
-    .eq("user_id", user.id)
+  // Check quota from users table
+  const { data: profile } = await supabase
+    .from("users")
+    .select("plan, monthly_prospect_limit, prospects_used_this_cycle")
+    .eq("id", user.id)
     .single();
 
-  if (!subscription) {
+  if (!profile) {
     return NextResponse.json(
-      { error: "No active subscription" },
+      { error: "User profile not found" },
       { status: 403 }
     );
   }
 
-  if (subscription.prospects_used >= subscription.prospects_limit) {
+  const remaining = profile.monthly_prospect_limit - profile.prospects_used_this_cycle;
+
+  if (remaining <= 0) {
     return NextResponse.json(
-      { error: "Prospect discovery quota exceeded. Please upgrade your plan." },
-      { status: 429 }
+      {
+        error: "Monthly prospect limit reached. Upgrade your plan to discover more.",
+        upgrade_url: "/dashboard/settings",
+        prospects_used: profile.prospects_used_this_cycle,
+        prospects_limit: profile.monthly_prospect_limit,
+        plan: profile.plan,
+      },
+      { status: 402 }
     );
   }
 
   const body = await request.json();
-  const { icpProfileId, maxProspects = 50 } = body;
+  const { icpProfileId, maxProspects = 10 } = body;
 
   if (!icpProfileId) {
     return NextResponse.json(
@@ -42,10 +50,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const remaining = subscription.prospects_limit - subscription.prospects_used;
   const cappedMax = Math.min(maxProspects, remaining);
 
-  // Send Inngest event for async discovery
   await inngest.send({
     name: "prospects/discover",
     data: {
@@ -58,5 +64,8 @@ export async function POST(request: Request) {
   return NextResponse.json({
     message: "Prospect discovery started",
     maxProspects: cappedMax,
+    prospects_used: profile.prospects_used_this_cycle,
+    prospects_limit: profile.monthly_prospect_limit,
+    prospects_remaining: remaining - cappedMax,
   });
 }

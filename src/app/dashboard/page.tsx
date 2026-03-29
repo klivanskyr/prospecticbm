@@ -10,6 +10,20 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login");
 
+  // Fetch user profile for quota info
+  const { data: profile } = await supabase
+    .from("users")
+    .select("plan, monthly_prospect_limit, prospects_used_this_cycle, cycle_reset_at")
+    .eq("id", user.id)
+    .single();
+
+  const prospectLimit = profile?.monthly_prospect_limit ?? 100;
+  const prospectsUsed = profile?.prospects_used_this_cycle ?? 0;
+  const prospectsRemaining = Math.max(0, prospectLimit - prospectsUsed);
+  const usagePercent = prospectLimit > 0 ? Math.round((prospectsUsed / prospectLimit) * 100) : 0;
+  const plan = profile?.plan ?? "starter";
+  const cycleResetAt = profile?.cycle_reset_at;
+
   const [
     { count: prospectsCount },
     { count: emailsSentCount },
@@ -22,25 +36,28 @@ export default async function DashboardPage() {
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id),
     supabase
-      .from("emails")
+      .from("outreach_events")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .eq("status", "sent"),
+      .eq("event_type", "sent")
+      .eq("channel", "email"),
     supabase
-      .from("prospects")
+      .from("outreach_events")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .eq("status", "connected"),
+      .eq("event_type", "connected")
+      .eq("channel", "linkedin"),
     supabase
-      .from("emails")
+      .from("outreach_events")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .eq("status", "replied"),
+      .eq("event_type", "replied"),
     supabase
-      .from("emails")
+      .from("outreach_events")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .in("status", ["sent", "replied", "opened"]),
+      .eq("channel", "email")
+      .in("event_type", ["sent", "replied", "opened"]),
   ]);
 
   const replyRate =
@@ -94,6 +111,53 @@ export default async function DashboardPage() {
               </p>
             </div>
           ))}
+        </div>
+
+        {/* Usage Bar */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-[#1C1917]">
+              Monthly Prospect Usage — <span className="capitalize">{plan}</span> Plan
+            </h3>
+            <span className="text-sm text-[#78716C]">
+              {prospectsUsed} / {prospectLimit} used
+              {cycleResetAt && (
+                <span className="ml-2">
+                  · Resets {new Date(cycleResetAt).toLocaleDateString()}
+                </span>
+              )}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-3">
+            <div
+              className={`h-3 rounded-full transition-all ${
+                usagePercent >= 90
+                  ? "bg-[#EF4444]"
+                  : usagePercent >= 70
+                    ? "bg-[#FACC15]"
+                    : "bg-[#10B981]"
+              }`}
+              style={{ width: `${Math.min(usagePercent, 100)}%` }}
+            />
+          </div>
+          {prospectsRemaining === 0 && (
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-sm text-[#EF4444] font-medium">
+                Monthly limit reached. Upgrade to discover more prospects.
+              </p>
+              <Link
+                href="/dashboard/settings"
+                className="text-sm bg-[#DC2626] text-white px-4 py-1.5 rounded-lg font-medium hover:bg-red-700 transition"
+              >
+                Upgrade Plan
+              </Link>
+            </div>
+          )}
+          {prospectsRemaining > 0 && prospectsRemaining <= 20 && (
+            <p className="mt-2 text-sm text-[#78716C]">
+              {prospectsRemaining} prospects remaining this month
+            </p>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
