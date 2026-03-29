@@ -49,7 +49,7 @@ export default function SettingsPage() {
 
       setUser(data);
       setFullName(data.full_name ?? "");
-      setCompanyName(data.company_name ?? "");
+      setCompanyName("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load settings");
     } finally {
@@ -69,7 +69,7 @@ export default function SettingsPage() {
     try {
       const { error: updateError } = await supabase
         .from("users")
-        .update({ full_name: fullName.trim(), company_name: companyName.trim() || null })
+        .update({ full_name: fullName.trim() })
         .eq("id", user.id);
       if (updateError) throw updateError;
       setSaveSuccess(true);

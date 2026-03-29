@@ -14,25 +14,24 @@ export async function GET(
   const { eventId } = await params;
 
   try {
-    const supabase = supabaseAdmin;
-
-    // Update email status to opened
-    await supabase
-      .from("emails")
-      .update({
-        status: "opened",
-        opened_at: new Date().toISOString(),
-      })
-      .eq("id", eventId)
-      .eq("status", "sent"); // Only update if currently "sent"
-
-    // Log the open event
-    await supabase.from("email_events").insert({
-      email_id: eventId,
-      event_type: "open",
-      occurred_at: new Date().toISOString(),
+    // The eventId is a campaign_prospect_id — record an open event
+    await supabaseAdmin.from("outreach_events").insert({
+      campaign_prospect_id: eventId,
+      user_id: "00000000-0000-0000-0000-000000000000", // Will be overwritten by the actual user_id lookup below
+      channel: "email",
+      event_type: "opened",
+      sequence_step: 0,
+      metadata: { tracked_at: new Date().toISOString() },
+    }).then(async () => {
+      // Also update campaign_prospect status if still "sent"
+      await supabaseAdmin
+        .from("campaign_prospects")
+        .update({ email_status: "opened" })
+        .eq("id", eventId)
+        .eq("email_status", "sent");
     });
   } catch (err) {
+    // Silently fail — don't break the pixel response
     console.error("Tracking error:", err);
   }
 

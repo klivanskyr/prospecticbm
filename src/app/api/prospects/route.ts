@@ -15,6 +15,7 @@ export async function GET(request: Request) {
   const limit = parseInt(searchParams.get("limit") ?? "25", 10);
   const status = searchParams.get("status");
   const search = searchParams.get("search");
+  const companyId = searchParams.get("company_id");
   const campaignId = searchParams.get("campaignId");
 
   const from = (page - 1) * limit;
@@ -27,6 +28,10 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false })
     .range(from, to);
 
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+
   if (status) {
     query = query.eq("status", status);
   }
@@ -38,7 +43,18 @@ export async function GET(request: Request) {
   }
 
   if (campaignId) {
-    query = query.eq("campaign_id", campaignId);
+    // Prospects are linked to campaigns via campaign_prospects junction table
+    const { data: cpData } = await supabase
+      .from("campaign_prospects")
+      .select("prospect_id")
+      .eq("campaign_id", campaignId);
+    const prospectIds = (cpData || []).map((cp: { prospect_id: string }) => cp.prospect_id);
+    if (prospectIds.length > 0) {
+      query = query.in("id", prospectIds);
+    } else {
+      // No prospects in this campaign — return empty
+      return NextResponse.json({ prospects: [], total: 0, page, limit, totalPages: 0 });
+    }
   }
 
   const { data, error, count } = await query;

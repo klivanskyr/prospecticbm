@@ -129,7 +129,7 @@ export default function CampaignDetailPage() {
     return (
       <div className="mx-auto max-w-7xl py-16 text-center">
         <p className="text-gray-500">Campaign not found.</p>
-        <Button variant="ghost" className="mt-4" onClick={() => router.push("/dashboard/campaigns")}>
+        <Button variant="ghost" className="mt-4" onClick={() => router.push("/dashboard")}>
           Back to Campaigns
         </Button>
       </div>
@@ -142,7 +142,7 @@ export default function CampaignDetailPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <button
-            onClick={() => router.push("/dashboard/campaigns")}
+            onClick={() => router.push("/dashboard")}
             className="mb-2 flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
