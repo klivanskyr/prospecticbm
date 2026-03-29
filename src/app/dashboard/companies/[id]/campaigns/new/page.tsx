@@ -15,7 +15,6 @@ const STEPS = [
   "Target ICP",
   "Channels",
   "Templates",
-  "Prospects",
   "Review & Launch",
 ] as const;
 
@@ -278,8 +277,6 @@ export default function NewCampaignPage() {
           name: campaignName,
           icp_profile_id: selectedIcpId,
           channels,
-          template_ids: selectedTemplateIds,
-          prospect_ids: selectedProspectIds,
           status,
         }),
       });
@@ -304,12 +301,6 @@ export default function NewCampaignPage() {
       case 2:
         return selectedTemplateIds.length > 0 || generatedSaved;
       case 3:
-        return (
-          selectedProspectIds.length > 0 ||
-          discoverOption === "auto" ||
-          discoverOption === "both"
-        );
-      case 4:
         return !!campaignName.trim();
       default:
         return false;
@@ -735,8 +726,8 @@ export default function NewCampaignPage() {
         </Card>
       )}
 
-      {/* ───── Step 3: Prospects ───── */}
-      {step === 3 && (
+      {/* ───── Prospects step removed — discovery is now autonomous ───── */}
+      {false && (
         <Card title="Add Prospects">
           <div className="space-y-4">
             {/* Discovery option tabs */}
@@ -875,8 +866,8 @@ export default function NewCampaignPage() {
         </Card>
       )}
 
-      {/* ───── Step 4: Review & Launch ───── */}
-      {step === 4 && (
+      {/* ───── Step 3: Review & Launch ───── */}
+      {step === 3 && (
         <Card title="Review & Launch">
           <div className="space-y-5">
             <Input

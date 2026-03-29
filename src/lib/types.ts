@@ -96,6 +96,11 @@ export interface Campaign {
   linkedin_connections_made: number;
   linkedin_messages_sent: number;
   started_at: string | null;
+  daily_emails_sent: number;
+  daily_linkedin_sent: number;
+  daily_reset_at: string | null;
+  max_daily_emails: number;
+  max_daily_linkedin: number;
   created_at: string;
   updated_at: string;
 }

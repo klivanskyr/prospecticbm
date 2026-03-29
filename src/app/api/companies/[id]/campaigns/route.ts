@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import { inngest } from "@/lib/inngest/client";
 import { NextResponse } from "next/server";
+import { PLAN_LIMITS } from "@/lib/types";
 
 export async function GET(
   _request: Request,
@@ -91,6 +93,12 @@ export async function POST(
     );
   }
 
+  // Get user plan for daily limits
+  const { data: userProfile } = await supabase.from("users").select("plan").eq("id", user.id).single();
+  const plan = (userProfile?.plan || "starter") as keyof typeof PLAN_LIMITS;
+  const dailyEmailLimit = plan === "starter" ? 20 : plan === "growth" ? 50 : 200;
+  const dailyLinkedinLimit = plan === "starter" ? 10 : plan === "growth" ? 25 : 50;
+
   // Create campaign
   const { data: campaign, error: campaignError } = await supabase
     .from("campaigns")
@@ -100,43 +108,27 @@ export async function POST(
       name: name.trim(),
       icp_profile_id: icp_profile_id || null,
       channels,
-      template_ids: template_ids || [],
-      prospect_ids: prospect_ids || [],
-      total_prospects: prospect_ids?.length ?? 0,
       status,
+      max_daily_emails: dailyEmailLimit,
+      max_daily_linkedin: dailyLinkedinLimit,
     })
     .select()
     .single();
 
   if (campaignError) {
-    return NextResponse.json(
-      { error: campaignError.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: campaignError.message }, { status: 500 });
   }
 
-  // Create campaign_prospects junction rows
-  if (prospect_ids?.length) {
-    const junctionRows = prospect_ids.map((prospectId: string) => ({
-      campaign_id: campaign.id,
-      prospect_id: prospectId,
-      email_status: "pending" as const,
-      email_step: 0,
-      linkedin_status: "pending" as const,
-      linkedin_step: 0,
-    }));
-
-    const { error: junctionError } = await supabase
-      .from("campaign_prospects")
-      .insert(junctionRows);
-
-    if (junctionError) {
-      // Campaign was created but junction failed — log but don't fail the whole request
-      console.error(
-        "Failed to create campaign_prospects:",
-        junctionError.message
-      );
-    }
+  // If launched immediately, trigger the autonomous pipeline
+  if (status === "active" && campaign) {
+    await inngest.send({
+      name: "campaign/run",
+      data: {
+        campaignId: campaign.id,
+        userId: user.id,
+        companyId,
+      },
+    });
   }
 
   return NextResponse.json(campaign, { status: 201 });
