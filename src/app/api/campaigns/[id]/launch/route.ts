@@ -8,14 +8,9 @@ export async function POST(
 ) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Fetch campaign
   const { data: campaign, error } = await supabase
     .from("campaigns")
     .select("*")
@@ -27,44 +22,21 @@ export async function POST(
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
 
-  if (campaign.status === "active") {
-    return NextResponse.json(
-      { error: "Campaign is already active" },
-      { status: 400 }
-    );
-  }
-
-  if (
-    !campaign.prospect_ids?.length ||
-    !campaign.template_ids?.length
-  ) {
-    return NextResponse.json(
-      { error: "Campaign must have prospects and templates" },
-      { status: 400 }
-    );
-  }
-
-  // Update campaign status
+  // Update status to active
   await supabase
     .from("campaigns")
-    .update({ status: "active", launched_at: new Date().toISOString() })
+    .update({ status: "active", started_at: campaign.started_at || new Date().toISOString() })
     .eq("id", id);
 
-  // Send Inngest events for each prospect
-  const events = campaign.prospect_ids.map((prospectId: string) => ({
-    name: "email/send-sequence" as const,
+  // Trigger the autonomous pipeline via Inngest
+  await inngest.send({
+    name: "campaign/run",
     data: {
-      userId: user.id,
-      prospectId,
       campaignId: id,
-      templateIds: campaign.template_ids,
+      userId: user.id,
+      companyId: campaign.company_id,
     },
-  }));
-
-  await inngest.send(events);
-
-  return NextResponse.json({
-    message: "Campaign launched",
-    prospectsQueued: campaign.prospect_ids.length,
   });
+
+  return NextResponse.json({ message: "Campaign pipeline started" });
 }
