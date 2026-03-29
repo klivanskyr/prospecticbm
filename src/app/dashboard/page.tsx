@@ -169,7 +169,7 @@ export default async function DashboardPage() {
             customers.
           </p>
           <Link
-            href="/dashboard/campaigns/new"
+            href="/dashboard/campaigns"
             className="inline-block bg-[#DC2626] text-white py-3 px-8 rounded-lg font-semibold hover:bg-red-700 transition"
           >
             Launch Campaign
