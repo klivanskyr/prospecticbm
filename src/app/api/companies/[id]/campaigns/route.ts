@@ -96,8 +96,8 @@ export async function POST(
   // Get user plan for daily limits
   const { data: userProfile } = await supabase.from("users").select("plan").eq("id", user.id).single();
   const plan = (userProfile?.plan || "starter") as keyof typeof PLAN_LIMITS;
-  const dailyEmailLimit = plan === "starter" ? 20 : plan === "growth" ? 50 : 200;
-  const dailyLinkedinLimit = plan === "starter" ? 10 : plan === "growth" ? 25 : 50;
+  const dailyEmailLimit = plan === "starter" ? 5 : plan === "growth" ? 25 : 100;
+  const dailyLinkedinLimit = plan === "starter" ? 5 : plan === "growth" ? 25 : 100;
 
   // Create campaign
   const { data: campaign, error: campaignError } = await supabase
